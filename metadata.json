@@ -1,0 +1,8 @@
+{
+  "name": "Broke Mate",
+  "description": "A comprehensive financial dashboard and time management suite.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
