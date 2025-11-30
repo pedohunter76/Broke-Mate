@@ -71,12 +71,6 @@ export interface TimeBlock {
 
 export type EnergyLevel = 'High' | 'Medium' | 'Low';
 
-export interface IncomeSource {
-  id: string;
-  name: string;
-  category: string;
-}
-
 export interface Subscription {
   id: string;
   name: string;

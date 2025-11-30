@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppTab, Transaction, Task, FinancialGoal, TimeBlock, IncomeSource, Subscription, Budget } from './types';
+import { AppTab, Transaction, Task, FinancialGoal, TimeBlock, Subscription, Budget } from './types';
 import FinanceDashboard from './components/FinanceDashboard';
 import TimeManager from './components/TimeManager';
 import InsightsDashboard from './components/InsightsDashboard';
@@ -28,10 +28,6 @@ const INITIAL_CATEGORIES = [
   'Others 📦'
 ];
 
-const INITIAL_INCOME_SOURCES: IncomeSource[] = [
-  { id: '1', name: 'Main Job', category: 'Salary 💰' }
-];
-
 const INITIAL_SUBSCRIPTIONS: Subscription[] = [];
 
 const App: React.FC = () => {
@@ -42,7 +38,6 @@ const App: React.FC = () => {
   const [budgets, setBudgets] = useState<Budget[]>(INITIAL_BUDGETS);
   const [schedule, setSchedule] = useState<TimeBlock[]>([]);
   const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
-  const [incomeSources, setIncomeSources] = useState<IncomeSource[]>(INITIAL_INCOME_SOURCES);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(INITIAL_SUBSCRIPTIONS);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -141,18 +136,6 @@ const App: React.FC = () => {
     setCategories(prev => prev.filter(c => c !== category));
   };
 
-  const addIncomeSource = (source: IncomeSource) => {
-    setIncomeSources(prev => [...prev, source]);
-  };
-
-  const updateIncomeSource = (updatedSource: IncomeSource) => {
-    setIncomeSources(prev => prev.map(s => s.id === updatedSource.id ? updatedSource : s));
-  };
-
-  const removeIncomeSource = (id: string) => {
-    setIncomeSources(prev => prev.filter(s => s.id !== id));
-  };
-
   const addSubscription = (sub: Subscription) => {
     setSubscriptions(prev => [...prev, sub]);
   };
@@ -239,10 +222,6 @@ const App: React.FC = () => {
             categories={categories}
             onAddCategory={addCategory}
             onRemoveCategory={removeCategory}
-            incomeSources={incomeSources}
-            onAddIncomeSource={addIncomeSource}
-            onUpdateIncomeSource={updateIncomeSource}
-            onRemoveIncomeSource={removeIncomeSource}
             subscriptions={subscriptions}
             onAddSubscription={addSubscription}
             onUpdateSubscription={updateSubscription}

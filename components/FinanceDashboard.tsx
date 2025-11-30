@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Transaction, ReceiptData, FinancialGoal, IncomeSource, Subscription, Budget } from '../types';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Plus, Upload, DollarSign, TrendingUp, TrendingDown, Loader2, Camera, Target, Sparkles, X, Settings, Tag, Trash2, Filter, XCircle, Wallet, ArrowRight, Check, Pencil, Repeat, CalendarClock, PauseCircle, PlayCircle, PieChart as PieChartIcon, Zap, PiggyBank, Coins, Sun, Moon } from 'lucide-react';
+import { Transaction, ReceiptData, FinancialGoal, Subscription, Budget } from '../types';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { Plus, Loader2, Camera, Target, Sparkles, X, Tag, Trash2, Filter, XCircle, Wallet, Repeat, CalendarClock, PieChart as PieChartIcon, Zap, PiggyBank, Sun, Moon, PauseCircle, PlayCircle, Check, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
 import { analyzeReceipt, getFinancialGoalAdvice } from '../services/geminiService';
 
 interface FinanceDashboardProps {
@@ -17,10 +18,6 @@ interface FinanceDashboardProps {
   categories: string[];
   onAddCategory: (c: string) => void;
   onRemoveCategory: (c: string) => void;
-  incomeSources: IncomeSource[];
-  onAddIncomeSource: (source: IncomeSource) => void;
-  onUpdateIncomeSource: (source: IncomeSource) => void;
-  onRemoveIncomeSource: (id: string) => void;
   subscriptions: Subscription[];
   onAddSubscription: (sub: Subscription) => void;
   onUpdateSubscription: (sub: Subscription) => void;
@@ -53,10 +50,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   categories,
   onAddCategory,
   onRemoveCategory,
-  incomeSources,
-  onAddIncomeSource,
-  onUpdateIncomeSource,
-  onRemoveIncomeSource,
   subscriptions,
   onAddSubscription,
   onUpdateSubscription,
@@ -68,7 +61,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [isAddingGoal, setIsAddingGoal] = useState(false);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [isManagingCategories, setIsManagingCategories] = useState(false);
-  const [isManagingIncomeSources, setIsManagingIncomeSources] = useState(false);
   const [isManagingSubscriptions, setIsManagingSubscriptions] = useState(false);
   const [isManagingBudgets, setIsManagingBudgets] = useState(false);
   const [isAddingTransaction, setIsAddingTransaction] = useState(false);
@@ -103,18 +95,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   // Category Management State
   const [newCategoryName, setNewCategoryName] = useState('');
 
-  // Income Source Management State
-  const [newIncomeSourceName, setNewIncomeSourceName] = useState('');
-  const [newIncomeSourceCategory, setNewIncomeSourceCategory] = useState(categories[0] || 'Salary 💰');
-  
-  // Income Source Editing State
-  const [editingSourceId, setEditingSourceId] = useState<string | null>(null);
-  const [editSourceCategory, setEditSourceCategory] = useState('');
-
-  // Inline Category Creation State (for Income Sources)
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
-  const [tempCategoryName, setTempCategoryName] = useState('');
-
   // Subscription Management State
   const [newSubName, setNewSubName] = useState('');
   const [newSubAmount, setNewSubAmount] = useState('');
@@ -130,7 +110,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [manualTxCategory, setManualTxCategory] = useState(categories[0] || 'Others 📦');
   const [manualTxType, setManualTxType] = useState<'income' | 'expense'>('expense');
   const [manualTxRecurrence, setManualTxRecurrence] = useState<'none' | 'weekly' | 'monthly' | 'yearly'>('none');
-  const [selectedIncomeSourceId, setSelectedIncomeSourceId] = useState('custom');
 
   // Random Tip
   const [currentTip, setCurrentTip] = useState(MICRO_TIPS[0]);
@@ -221,19 +200,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           if (result) {
             let txType: 'income' | 'expense' = 'expense';
             let txCategory = result.category || 'Others 📦';
-
-            if (result.merchant) {
-              const merchantName = result.merchant.toLowerCase();
-              const matchedSource = incomeSources.find(s => {
-                const sourceName = s.name.toLowerCase();
-                return sourceName.includes(merchantName) || merchantName.includes(sourceName);
-              });
-              
-              if (matchedSource) {
-                txType = 'income';
-                txCategory = matchedSource.category;
-              }
-            }
 
             const newTransaction: Transaction = {
               id: Date.now().toString(),
@@ -328,18 +294,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     }
   };
 
-  const handleAddIncomeSource = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newIncomeSourceName.trim()) {
-      onAddIncomeSource({
-        id: Date.now().toString(),
-        name: newIncomeSourceName.trim(),
-        category: newIncomeSourceCategory
-      });
-      setNewIncomeSourceName('');
-    }
-  };
-
   const handleAddSubscription = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubName || !newSubAmount) return;
@@ -366,29 +320,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         ...sub,
         status: sub.status === 'active' ? 'paused' : 'active'
     });
-  };
-
-  const handleQuickAddCategory = () => {
-    if (tempCategoryName.trim()) {
-      onAddCategory(tempCategoryName.trim());
-      setNewIncomeSourceCategory(tempCategoryName.trim());
-      setNewSubCategory(tempCategoryName.trim());
-      setIsCreatingCategory(false);
-      setTempCategoryName('');
-    }
-  };
-
-  const startEditingSource = (source: IncomeSource) => {
-    setEditingSourceId(source.id);
-    setEditSourceCategory(source.category);
-  };
-
-  const saveEditedSource = (source: IncomeSource) => {
-    onUpdateIncomeSource({
-      ...source,
-      category: editSourceCategory
-    });
-    setEditingSourceId(null);
   };
 
   const handleAddManualTransaction = (e: React.FormEvent) => {
@@ -434,22 +365,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     setManualTxMerchant('');
     setManualTxAmount('');
     setManualTxRecurrence('none');
-    setSelectedIncomeSourceId('custom');
-  };
-
-  const handleIncomeSourceSelect = (sourceId: string) => {
-    setSelectedIncomeSourceId(sourceId);
-    if (sourceId === 'custom') {
-        setManualTxMerchant('');
-        setManualTxCategory(categories[0] || 'Others 📦');
-        return;
-    }
-    
-    const source = incomeSources.find(s => s.id === sourceId);
-    if (source) {
-      setManualTxMerchant(source.name);
-      setManualTxCategory(source.category);
-    }
   };
 
   const clearFilters = () => {
@@ -507,13 +422,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
           >
             <Tag className="w-4 h-4" />
             Categories
-          </button>
-          <button 
-            onClick={() => setIsManagingIncomeSources(true)}
-            className="flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-white px-4 py-2 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700"
-          >
-            <Wallet className="w-4 h-4" />
-            Sources
           </button>
            <button 
             onClick={() => fileInputRef.current?.click()}
@@ -701,10 +609,10 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     <Plus className="w-5 h-5" /> Detailed Entry
                 </button>
                 <button 
-                    onClick={() => setIsManagingIncomeSources(true)} 
+                    onClick={() => setIsManagingBudgets(true)} 
                     className="flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-white px-6 py-3 rounded-xl font-semibold transition-all border border-slate-200 dark:border-slate-700"
                 >
-                    <Settings className="w-5 h-5" /> Setup Income Sources
+                    <PieChartIcon className="w-5 h-5" /> Set Budget
                 </button>
             </div>
         </div>
@@ -971,16 +879,18 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     <Target className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>No financial goals set yet.</p>
                     <p className="text-sm mt-1">Start small: "New Shoes" or "Emergency Fund"</p>
-                    <button onClick={() => setIsAddingGoal(true)} className="text-indigo-500 dark:text-indigo-400 hover:underline mt-2">Create your first goal</button>
+                    <button onClick={() => setIsAddingGoal(true)} className="text-indigo-500 dark:text-indigo-400 hover:underline mt-2 font-medium">Create your first goal</button>
                 </div>
             )}
         </div>
       </div>
 
+      {/* --- MODALS --- */}
+
       {/* Add Funds Modal */}
       {addingFundsGoalId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 dark:bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
-             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-sm p-6 rounded-2xl shadow-2xl relative">
+             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-sm p-6 rounded-2xl shadow-2xl relative max-h-[85vh] overflow-y-auto">
                   <button onClick={() => setAddingFundsGoalId(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white">
                      <X className="w-5 h-5" />
                   </button>
@@ -1022,6 +932,228 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
              </div>
           </div>
       )}
+
+      {/* Manual Transaction Modal */}
+      {isAddingTransaction && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 dark:bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md p-6 rounded-2xl shadow-2xl relative max-h-[85vh] overflow-y-auto">
+                  <button onClick={() => setIsAddingTransaction(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                      <X className="w-5 h-5" />
+                  </button>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Detailed Entry</h3>
+                  <form onSubmit={handleAddManualTransaction} className="space-y-4">
+                      <div>
+                          <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">Type</label>
+                          <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+                              <button type="button" onClick={() => setManualTxType('expense')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${manualTxType === 'expense' ? 'bg-white dark:bg-slate-700 shadow text-red-600 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>Expense</button>
+                              <button type="button" onClick={() => setManualTxType('income')} className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${manualTxType === 'income' ? 'bg-white dark:bg-slate-700 shadow text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>Income</button>
+                          </div>
+                      </div>
+                      
+                      <div>
+                          <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">Merchant / Description</label>
+                          <input type="text" value={manualTxMerchant} onChange={e => setManualTxMerchant(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base" placeholder="e.g., Jollibee" />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">Amount</label>
+                              <div className="relative">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">₱</span>
+                                  <input type="number" value={manualTxAmount} onChange={e => setManualTxAmount(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg pl-7 pr-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base" placeholder="0.00" />
+                              </div>
+                          </div>
+                          <div>
+                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">Date</label>
+                              <input type="date" value={manualTxDate} onChange={e => setManualTxDate(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base" />
+                          </div>
+                      </div>
+
+                      <div>
+                          <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">Category</label>
+                          <select value={manualTxCategory} onChange={e => setManualTxCategory(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base">
+                              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                      </div>
+
+                      <div>
+                          <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">Recurrence (Subscription)</label>
+                          <select value={manualTxRecurrence} onChange={e => setManualTxRecurrence(e.target.value as any)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base">
+                              <option value="none">One-time</option>
+                              <option value="weekly">Weekly</option>
+                              <option value="monthly">Monthly</option>
+                              <option value="yearly">Yearly</option>
+                          </select>
+                      </div>
+
+                      <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold mt-2 transition-colors">
+                          Add Transaction
+                      </button>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* Subscription Manager Modal */}
+      {isManagingSubscriptions && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 dark:bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg p-6 rounded-2xl shadow-2xl relative max-h-[85vh] overflow-y-auto">
+                  <button onClick={() => setIsManagingSubscriptions(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                      <X className="w-5 h-5" />
+                  </button>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Subscriptions</h3>
+                  
+                  {/* List Active Subscriptions */}
+                  <div className="space-y-3 mb-8">
+                      {subscriptions.map(sub => (
+                          <div key={sub.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <div>
+                                  <p className="font-semibold text-slate-900 dark:text-white">{sub.name}</p>
+                                  <p className="text-xs text-slate-500">{sub.frequency} • ₱{sub.amount}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                  <button onClick={() => toggleSubscriptionStatus(sub)} className={`p-2 rounded-lg ${sub.status === 'active' ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                                      {sub.status === 'active' ? <PauseCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
+                                  </button>
+                                  <button onClick={() => onRemoveSubscription(sub.id)} className="p-2 bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 rounded-lg">
+                                      <Trash2 className="w-4 h-4" />
+                                  </button>
+                              </div>
+                          </div>
+                      ))}
+                      {subscriptions.length === 0 && <p className="text-center text-slate-400 text-sm">No active subscriptions.</p>}
+                  </div>
+
+                  {/* Add New Subscription */}
+                  <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Add New</h4>
+                  <form onSubmit={handleAddSubscription} className="space-y-3">
+                      <div className="flex gap-3">
+                          <input type="text" value={newSubName} onChange={e => setNewSubName(e.target.value)} placeholder="Name (e.g. Netflix)" required className="flex-[2] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base" />
+                          <input type="number" value={newSubAmount} onChange={e => setNewSubAmount(e.target.value)} placeholder="Amount" required className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base" />
+                      </div>
+                      <div className="flex gap-3">
+                          <select value={newSubFrequency} onChange={e => setNewSubFrequency(e.target.value as any)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base">
+                              <option value="weekly">Weekly</option>
+                              <option value="monthly">Monthly</option>
+                              <option value="yearly">Yearly</option>
+                          </select>
+                          <select value={newSubCategory} onChange={e => setNewSubCategory(e.target.value)} className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base">
+                              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                      </div>
+                      <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold mt-2 transition-colors">
+                          Save Subscription
+                      </button>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* Budget Manager Modal */}
+      {isManagingBudgets && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 dark:bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md p-6 rounded-2xl shadow-2xl relative max-h-[85vh] overflow-y-auto">
+                  <button onClick={() => setIsManagingBudgets(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                      <X className="w-5 h-5" />
+                  </button>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Monthly Budgets</h3>
+                  
+                  <div className="space-y-3 mb-6">
+                      {budgets.map(b => (
+                          <div key={b.id} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                              <span className="text-slate-900 dark:text-white font-medium">{b.category}</span>
+                              <div className="flex items-center gap-3">
+                                  <span className="text-slate-600 dark:text-slate-300">₱{b.amount.toLocaleString()}</span>
+                                  <button onClick={() => onRemoveBudget(b.id)} className="text-red-500 hover:text-red-700"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                          </div>
+                      ))}
+                      {budgets.length === 0 && <p className="text-center text-slate-400 text-sm">No budgets set.</p>}
+                  </div>
+
+                  <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Set New Limit</h4>
+                  <form onSubmit={handleSetBudget} className="space-y-3">
+                      <select value={newBudgetCategory} onChange={e => setNewBudgetCategory(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base">
+                          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <input type="number" value={newBudgetAmount} onChange={e => setNewBudgetAmount(e.target.value)} placeholder="Limit Amount" required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base" />
+                      <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold mt-2 transition-colors">
+                          Set Budget
+                      </button>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* Category Manager Modal */}
+      {isManagingCategories && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 dark:bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md p-6 rounded-2xl shadow-2xl relative max-h-[85vh] overflow-y-auto">
+                  <button onClick={() => setIsManagingCategories(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                      <X className="w-5 h-5" />
+                  </button>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Manage Categories</h3>
+                  
+                  <div className="flex flex-wrap gap-2 mb-6">
+                      {categories.map(cat => (
+                          <div key={cat} className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                              <span className="text-slate-700 dark:text-slate-200">{cat}</span>
+                              <button onClick={() => onRemoveCategory(cat)} className="text-slate-400 hover:text-red-500"><X className="w-3 h-3" /></button>
+                          </div>
+                      ))}
+                  </div>
+
+                  <form onSubmit={handleAddCategory} className="flex gap-2">
+                      <input 
+                          type="text" 
+                          value={newCategoryName} 
+                          onChange={e => setNewCategoryName(e.target.value)} 
+                          placeholder="New Category + Emoji" 
+                          className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base"
+                      />
+                      <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors">
+                          Add
+                      </button>
+                  </form>
+              </div>
+          </div>
+      )}
+
+      {/* New Goal Modal */}
+      {isAddingGoal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 dark:bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md p-6 rounded-2xl shadow-2xl relative max-h-[85vh] overflow-y-auto">
+                  <button onClick={() => setIsAddingGoal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-900 dark:hover:text-white">
+                      <X className="w-5 h-5" />
+                  </button>
+                  <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Create New Goal</h3>
+                  <form onSubmit={handleCreateGoal} className="space-y-4">
+                      <div>
+                          <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">Goal Name</label>
+                          <input type="text" value={newGoalTitle} onChange={e => setNewGoalTitle(e.target.value)} placeholder="e.g. New Shoes 👟" required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base" />
+                      </div>
+                      <div>
+                          <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">Target Amount (₱)</label>
+                          <input type="number" value={newGoalAmount} onChange={e => setNewGoalAmount(e.target.value)} placeholder="0.00" required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base" />
+                      </div>
+                      <div>
+                          <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1">Target Deadline</label>
+                          <input type="date" value={newGoalDate} onChange={e => setNewGoalDate(e.target.value)} required className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2.5 focus:outline-none focus:border-indigo-500 dark:text-white text-base" />
+                      </div>
+                      
+                      <button 
+                          type="submit" 
+                          disabled={isGeneratingPlan}
+                          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold mt-2 transition-colors flex items-center justify-center gap-2"
+                      >
+                          {isGeneratingPlan ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
+                          Create Goal & Get Advice
+                      </button>
+                  </form>
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };
