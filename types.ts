@@ -81,3 +81,11 @@ export interface Subscription {
   nextPaymentDate: string;
   status: 'active' | 'paused';
 }
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  pin?: string; // Optional simple pin
+  avatar?: string;
+  createdAt: string;
+}
