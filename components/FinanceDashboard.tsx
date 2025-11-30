@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Transaction, ReceiptData, FinancialGoal, Subscription, Budget } from '../types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { Plus, Loader2, Camera, Target, Sparkles, X, Tag, Trash2, Filter, XCircle, Wallet, Repeat, CalendarClock, PieChart as PieChartIcon, Zap, PiggyBank, Sun, Moon, PauseCircle, PlayCircle, Check, DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { Plus, Loader2, Camera, Target, Sparkles, X, Tag, Trash2, Filter, XCircle, Wallet, Repeat, CalendarClock, PieChart as PieChartIcon, Zap, PiggyBank, Sun, Moon, PauseCircle, PlayCircle, Check, DollarSign, TrendingUp, TrendingDown, Settings } from 'lucide-react';
 import { analyzeReceipt, getFinancialGoalAdvice } from '../services/geminiService';
 
 interface FinanceDashboardProps {
@@ -37,6 +37,8 @@ const MICRO_TIPS = [
     "Small savings add up to big dreams! 🚀"
 ];
 
+const INCOME_PRESETS = ['Allowance 💸', 'Salary 💼', 'Business 📈', 'Gift 🎁', 'Others 📦'];
+
 const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ 
   transactions, 
   onAddTransaction,
@@ -67,10 +69,21 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [activeChart, setActiveChart] = useState<'income' | 'expense'>('expense');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Quick Expense Tracker State
+  // Quick Tracker State
+  const [quickType, setQuickType] = useState<'expense' | 'income'>('expense');
   const [quickAmount, setQuickAmount] = useState('');
   const [quickNote, setQuickNote] = useState('');
-  const [quickCategory, setQuickCategory] = useState(categories[0] || 'Food 🍜');
+  const [quickCategory, setQuickCategory] = useState('');
+
+  // Set default category when type or categories change
+  useEffect(() => {
+    if (quickType === 'expense') {
+        const expenseCats = categories.filter(c => !c.toLowerCase().includes('savings'));
+        setQuickCategory(expenseCats[0] || 'Food 🍜');
+    } else {
+        setQuickCategory(INCOME_PRESETS[0]);
+    }
+  }, [quickType, categories]);
 
   // Filter State
   const [showFilters, setShowFilters] = useState(false);
@@ -162,7 +175,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
   const currentChartData = getCategoryData(activeChart);
 
-  const handleQuickAddExpense = (e: React.FormEvent) => {
+  const handleQuickAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!quickAmount) return;
 
@@ -171,11 +184,11 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 
     const newTx: Transaction = {
         id: Date.now().toString(),
-        merchant: quickNote || quickCategory.split(' ')[0], // Use note or category name as merchant/description
+        merchant: quickNote || (quickType === 'income' ? 'Income' : quickCategory.split(' ')[0]), 
         amount: amount,
         date: new Date().toISOString().split('T')[0],
         category: quickCategory,
-        type: 'expense'
+        type: quickType
     };
 
     onAddTransaction(newTx);
@@ -378,6 +391,11 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     filterStartDate, filterEndDate, filterCategory !== 'All', filterType !== 'all'
   ].filter(Boolean).length;
 
+  // Determine displayed categories in Quick Tracker
+  const quickTrackerCategories = quickType === 'expense' 
+    ? categories.filter(c => !c.toLowerCase().includes('savings')) 
+    : INCOME_PRESETS.concat(categories.filter(c => !INCOME_PRESETS.includes(c) && !c.toLowerCase().includes('food') && !c.toLowerCase().includes('transpo') && !c.toLowerCase().includes('luho')));
+
   return (
     <div className="h-full overflow-y-auto p-4 md:p-8 space-y-8 relative">
       {/* Header & Actions */}
@@ -441,23 +459,45 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
         </div>
       </div>
 
-      {/* Quick Daily Expense Tracker */}
-      <div className="bg-gradient-to-r from-indigo-50 to-white dark:from-slate-900 dark:to-indigo-900/40 border border-indigo-100 dark:border-slate-700 p-6 rounded-2xl shadow-xl animate-in slide-in-from-top-4 duration-500 relative overflow-hidden">
+      {/* Quick Daily Tracker */}
+      <div className={`border p-6 rounded-2xl shadow-xl animate-in slide-in-from-top-4 duration-500 relative overflow-hidden transition-colors ${
+          quickType === 'expense' 
+          ? 'bg-gradient-to-r from-indigo-50 to-white dark:from-slate-900 dark:to-indigo-900/40 border-indigo-100 dark:border-slate-700' 
+          : 'bg-gradient-to-r from-emerald-50 to-white dark:from-slate-900 dark:to-emerald-900/40 border-emerald-100 dark:border-slate-700'
+      }`}>
         
-        <h3 className="text-slate-900 dark:text-white font-bold text-lg mb-4 flex items-center gap-2">
-            <Zap className="w-5 h-5 text-amber-500 dark:text-amber-400" /> 
-            Quick Expense Tracker
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="text-slate-900 dark:text-white font-bold text-lg flex items-center gap-2">
+                <Zap className={`w-5 h-5 ${quickType === 'expense' ? 'text-amber-500' : 'text-emerald-500'}`} /> 
+                {quickType === 'expense' ? 'Quick Expense Tracker' : 'Quick Income Tracker'}
+            </h3>
+            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                <button 
+                    onClick={() => setQuickType('expense')}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${quickType === 'expense' ? 'bg-white dark:bg-slate-700 text-red-600 dark:text-red-400 shadow' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                >
+                    Expense
+                </button>
+                <button 
+                    onClick={() => setQuickType('income')}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${quickType === 'income' ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+                >
+                    Income
+                </button>
+            </div>
+        </div>
         
         {/* Category Selector Scroll */}
-        <div className="flex gap-3 overflow-x-auto pb-4 mb-4 custom-scrollbar snap-x">
-            {categories.map((cat) => (
+        <div className="flex items-center gap-3 overflow-x-auto pb-4 mb-4 custom-scrollbar snap-x">
+            {quickTrackerCategories.map((cat) => (
                 <button
                     key={cat}
                     onClick={() => setQuickCategory(cat)}
                     className={`flex-shrink-0 px-4 py-3 rounded-xl border transition-all snap-start ${
                         quickCategory === cat 
-                        ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30 scale-105' 
+                        ? (quickType === 'expense' 
+                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg shadow-indigo-500/30 scale-105' 
+                            : 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/30 scale-105')
                         : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                 >
@@ -465,10 +505,20 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     <span className="text-xs font-medium">{cat.split(' ').slice(0, -1).join(' ')}</span>
                 </button>
             ))}
+            
+            {quickType === 'income' && (
+                <button
+                    onClick={() => setIsManagingCategories(true)}
+                    className="flex-shrink-0 px-4 py-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex flex-col items-center justify-center min-w-[100px]"
+                >
+                    <Settings className="w-5 h-5 mb-1" />
+                    <span className="text-xs font-medium">Customize</span>
+                </button>
+            )}
         </div>
 
         {/* Quick Input Form */}
-        <form onSubmit={handleQuickAddExpense} className="flex flex-col md:flex-row gap-4 items-end">
+        <form onSubmit={handleQuickAdd} className="flex flex-col md:flex-row gap-4 items-end">
             <div className="flex-1 w-full relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl">₱</span>
                 <input 
@@ -484,15 +534,19 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                     type="text" 
                     value={quickNote}
                     onChange={(e) => setQuickNote(e.target.value)}
-                    placeholder="Note (optional, e.g. Lunch at Jollibee)"
+                    placeholder={quickType === 'expense' ? "Note (optional, e.g. Lunch)" : "Source (optional, e.g. Freelance)"}
                     className="w-full bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-4 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
             </div>
             <button 
                 type="submit"
-                className="w-full md:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                className={`w-full md:w-auto text-white px-8 py-4 rounded-xl font-bold text-lg shadow-lg transition-all active:scale-95 ${
+                    quickType === 'expense' 
+                    ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20' 
+                    : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20'
+                }`}
             >
-                Add
+                {quickType === 'expense' ? 'Add Expense' : 'Add Income'}
             </button>
         </form>
       </div>

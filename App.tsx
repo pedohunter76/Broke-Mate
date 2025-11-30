@@ -25,6 +25,8 @@ const INITIAL_CATEGORIES = [
   'Bills 🧾', 
   'Savings 💰', 
   'Health 💊', 
+  'Allowance 💸',
+  'Salary 💼',
   'Others 📦'
 ];
 
