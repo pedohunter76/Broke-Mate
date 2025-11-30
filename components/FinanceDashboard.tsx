@@ -1,9 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Transaction, ReceiptData, FinancialGoal, Subscription, Budget } from '../types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Plus, Loader2, Camera, Target, Sparkles, X, Tag, Trash2, Filter, XCircle, Wallet, Repeat, CalendarClock, PieChart as PieChartIcon, Zap, PiggyBank, Sun, Moon, PauseCircle, PlayCircle, Check, DollarSign, TrendingUp, TrendingDown, Settings } from 'lucide-react';
-import { analyzeReceipt, getFinancialGoalAdvice } from '../services/geminiService';
+import { analyzeReceipt } from '../services/geminiService';
 
 interface FinanceDashboardProps {
   transactions: Transaction[];
@@ -37,7 +36,9 @@ const MICRO_TIPS = [
     "Small savings add up to big dreams! 🚀"
 ];
 
-const INCOME_PRESETS = ['Allowance 💸', 'Salary 💼', 'Business 📈', 'Gift 🎁', 'Others 📦'];
+// Specific lists for Quick Tracker
+const QUICK_EXPENSE_CATS = ['Food 🍜', 'Transpo 🚕', 'Schoolwork 📚', 'Luho 🛒', 'Emergency 😭', 'Bills 🧾', 'Health 💊', 'Others 📦'];
+const QUICK_INCOME_CATS = ['Allowance 💸', 'Gift 🎁', 'Salary 💼'];
 
 const FinanceDashboard: React.FC<FinanceDashboardProps> = ({ 
   transactions, 
@@ -61,7 +62,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
 }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [isAddingGoal, setIsAddingGoal] = useState(false);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [isManagingCategories, setIsManagingCategories] = useState(false);
   const [isManagingSubscriptions, setIsManagingSubscriptions] = useState(false);
   const [isManagingBudgets, setIsManagingBudgets] = useState(false);
@@ -75,15 +75,14 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   const [quickNote, setQuickNote] = useState('');
   const [quickCategory, setQuickCategory] = useState('');
 
-  // Set default category when type or categories change
+  // Set default category when type changes
   useEffect(() => {
     if (quickType === 'expense') {
-        const expenseCats = categories.filter(c => !c.toLowerCase().includes('savings'));
-        setQuickCategory(expenseCats[0] || 'Food 🍜');
+        setQuickCategory(QUICK_EXPENSE_CATS[0]);
     } else {
-        setQuickCategory(INCOME_PRESETS[0]);
+        setQuickCategory(QUICK_INCOME_CATS[0]);
     }
-  }, [quickType, categories]);
+  }, [quickType]);
 
   // Filter State
   const [showFilters, setShowFilters] = useState(false);
@@ -242,34 +241,21 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
     e.preventDefault();
     if (!newGoalTitle || !newGoalAmount || !newGoalDate) return;
 
-    setIsGeneratingPlan(true);
-    try {
-        const targetAmount = parseFloat(newGoalAmount);
-        const advice = await getFinancialGoalAdvice(
-            { title: newGoalTitle, targetAmount, deadline: newGoalDate },
-            { income: totalIncome, expense: totalExpense }
-        );
+    const targetAmount = parseFloat(newGoalAmount);
+    
+    const newGoal: FinancialGoal = {
+        id: Date.now().toString(),
+        title: newGoalTitle,
+        targetAmount,
+        currentAmount: 0,
+        deadline: newGoalDate,
+    };
 
-        const newGoal: FinancialGoal = {
-            id: Date.now().toString(),
-            title: newGoalTitle,
-            targetAmount,
-            currentAmount: 0,
-            deadline: newGoalDate,
-            aiAdvice: advice
-        };
-
-        onAddGoal(newGoal);
-        setIsAddingGoal(false);
-        setNewGoalTitle('');
-        setNewGoalAmount('');
-        setNewGoalDate('');
-    } catch (error) {
-        console.error("Failed to create goal", error);
-        alert("Could not generate AI plan. Please try again.");
-    } finally {
-        setIsGeneratingPlan(false);
-    }
+    onAddGoal(newGoal);
+    setIsAddingGoal(false);
+    setNewGoalTitle('');
+    setNewGoalAmount('');
+    setNewGoalDate('');
   };
 
   const handleAddFundsToGoal = (amount: number) => {
@@ -281,6 +267,17 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
             ...goal,
             currentAmount: goal.currentAmount + amount
         });
+
+        // Add a transaction to reflect this savings as an expense (money set aside)
+        onAddTransaction({
+            id: `goal-save-${Date.now()}`,
+            merchant: `Goal: ${goal.title}`,
+            amount: amount,
+            date: new Date().toISOString().split('T')[0],
+            category: 'Savings 💰',
+            type: 'expense'
+        });
+
         setAddingFundsGoalId(null);
         setFundAmount('');
     }
@@ -392,9 +389,7 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
   ].filter(Boolean).length;
 
   // Determine displayed categories in Quick Tracker
-  const quickTrackerCategories = quickType === 'expense' 
-    ? categories.filter(c => !c.toLowerCase().includes('savings')) 
-    : INCOME_PRESETS.concat(categories.filter(c => !INCOME_PRESETS.includes(c) && !c.toLowerCase().includes('food') && !c.toLowerCase().includes('transpo') && !c.toLowerCase().includes('luho')));
+  const quickTrackerCategories = quickType === 'expense' ? QUICK_EXPENSE_CATS : QUICK_INCOME_CATS;
 
   return (
     <div className="h-full overflow-y-auto p-4 md:p-8 space-y-8 relative">
@@ -420,27 +415,29 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
              Filters
              {activeFilterCount > 0 && <span className="bg-indigo-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{activeFilterCount}</span>}
            </button>
-           <button 
-            onClick={() => setIsManagingSubscriptions(true)}
-            className="flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-white px-4 py-2 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700"
-          >
-            <CalendarClock className="w-4 h-4" />
-            Subscriptions
-          </button>
-          <button 
-            onClick={() => setIsManagingBudgets(true)}
-            className="flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-white px-4 py-2 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700"
-          >
-            <PieChartIcon className="w-4 h-4" />
-            Budgets
-          </button>
-           <button 
-            onClick={() => setIsManagingCategories(true)}
-            className="flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-white px-4 py-2 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700"
-          >
-            <Tag className="w-4 h-4" />
-            Categories
-          </button>
+           <div className="flex items-center gap-2 overflow-x-auto max-w-[200px] md:max-w-none">
+                <button 
+                    onClick={() => setIsManagingSubscriptions(true)}
+                    className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-white px-4 py-2 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700"
+                >
+                    <CalendarClock className="w-4 h-4" />
+                    Subscriptions
+                </button>
+                <button 
+                    onClick={() => setIsManagingBudgets(true)}
+                    className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-white px-4 py-2 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700"
+                >
+                    <PieChartIcon className="w-4 h-4" />
+                    Budgets
+                </button>
+                <button 
+                    onClick={() => setIsManagingCategories(true)}
+                    className="flex-shrink-0 flex items-center gap-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-white px-4 py-2 rounded-lg font-medium transition-colors border border-slate-200 dark:border-slate-700"
+                >
+                    <Tag className="w-4 h-4" />
+                    Categories
+                </button>
+           </div>
            <button 
             onClick={() => fileInputRef.current?.click()}
             disabled={isScanning}
@@ -506,15 +503,13 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                 </button>
             ))}
             
-            {quickType === 'income' && (
-                <button
-                    onClick={() => setIsManagingCategories(true)}
-                    className="flex-shrink-0 px-4 py-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex flex-col items-center justify-center min-w-[100px]"
-                >
-                    <Settings className="w-5 h-5 mb-1" />
-                    <span className="text-xs font-medium">Customize</span>
-                </button>
-            )}
+            <button
+                onClick={() => setIsManagingCategories(true)}
+                className="flex-shrink-0 px-4 py-3 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 bg-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all flex flex-col items-center justify-center min-w-[100px]"
+            >
+                <Settings className="w-5 h-5 mb-1" />
+                <span className="text-xs font-medium">Customize</span>
+            </button>
         </div>
 
         {/* Quick Input Form */}
@@ -916,16 +911,6 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                              Remaining: ₱{(goal.targetAmount - goal.currentAmount).toLocaleString()}
                         </div>
                     </div>
-
-                    {/* AI Advice Tooltip on Hover */}
-                    {goal.aiAdvice && (
-                        <div className="absolute inset-x-0 bottom-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur p-4 transform translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-20 border-t border-slate-200 dark:border-slate-700 shadow-lg">
-                             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">
-                                <span className="block text-indigo-600 dark:text-indigo-400 font-bold mb-1 flex items-center gap-1"><Sparkles className="w-3 h-3" /> Tip</span>
-                                {goal.aiAdvice}
-                            </p>
-                        </div>
-                    )}
                 </div>
             ))}
             {goals.length === 0 && (
@@ -1197,11 +1182,10 @@ const FinanceDashboard: React.FC<FinanceDashboardProps> = ({
                       
                       <button 
                           type="submit" 
-                          disabled={isGeneratingPlan}
                           className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold mt-2 transition-colors flex items-center justify-center gap-2"
                       >
-                          {isGeneratingPlan ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                          Create Goal & Get Advice
+                          <Plus className="w-5 h-5" />
+                          Create Goal
                       </button>
                   </form>
               </div>

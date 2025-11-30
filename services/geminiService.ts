@@ -150,43 +150,6 @@ export const suggestWorkflow = async (tasks: Task[]): Promise<string> => {
 }
 
 /**
- * Generates financial advice for a specific goal.
- * Uses gemini-3-pro-preview for detailed planning.
- */
-export const getFinancialGoalAdvice = async (
-  goal: { title: string; targetAmount: number; deadline: string },
-  context: { income: number; expense: number }
-): Promise<string> => {
-  const ai = getAI();
-  try {
-    const prompt = `
-      I am a Filipino user planning a financial goal.
-      Goal: ${goal.title}
-      Target Amount: ₱${goal.targetAmount}
-      Deadline: ${goal.deadline}
-      
-      My current monthly context:
-      Total Income: ₱${context.income}
-      Total Expenses: ₱${context.expense}
-
-      Please provide a concise, personalized plan (3-4 bullet points) on how I can achieve this. 
-      Include a recommended monthly savings amount. 
-      Be realistic about Filipino living costs if relevant.
-    `;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt
-    });
-
-    return response.text || "Save consistently and review your expenses.";
-  } catch (error) {
-    console.error("Error generating goal advice:", error);
-    return "Unable to generate advice at the moment. Try to save 20% of your income.";
-  }
-};
-
-/**
  * Cross-functional analysis of time and money.
  * Uses gemini-3-pro-preview to find patterns.
  */

@@ -45,7 +45,6 @@ export interface FinancialGoal {
   targetAmount: number;
   currentAmount: number;
   deadline: string;
-  aiAdvice: string;
 }
 
 export interface Budget {
